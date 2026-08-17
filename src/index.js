@@ -53,8 +53,8 @@ const loginLimiter = rateLimit({
 const allowedOrigins = [
   process.env.CLIENT_URL || "http://localhost:5173",
   "http://localhost:5174",
-  "https://backend-fix-maligaon.vercel.app", // Add your Vercel frontend URL
-  "https://www.stmarysmaligaon.in", // Add your main domain
+  "https://backend-fix-maligaon.vercel.app",
+  "https://www.stmarysmaligaon.in",
 ];
 
 // Middleware
