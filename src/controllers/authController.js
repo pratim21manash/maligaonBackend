@@ -46,7 +46,6 @@ export const login = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      domain: "maligaonbackend-3.onrender.com",
     });
 
     res.json({
