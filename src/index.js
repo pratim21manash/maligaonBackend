@@ -162,7 +162,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.set("trust proxy", 1);
 
-// Ensure upload directories exist
+// Create upload directories
 const uploadDirs = [
   path.join(__dirname, "../uploads"),
   path.join(__dirname, "../uploads/images"),
@@ -171,20 +171,16 @@ const uploadDirs = [
 ];
 
 uploadDirs.forEach((dir) => {
-  try {
-    fs.ensureDirSync(dir);
-    console.log(`Directory ensured: ${dir}`);
-  } catch (error) {
-    console.error(`Error creating directory ${dir}:`, error);
-  }
+  fs.ensureDirSync(dir);
+  console.log(`✅ Directory ready: ${dir}`);
 });
 
 // Connect to database
 connectDB();
 
-// Rate limit login attempts to slow brute-force attacks
+// Rate limit login attempts
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 20,
   message: {
     success: false,
@@ -225,6 +221,7 @@ app.use(
     ],
   }),
 );
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -235,21 +232,27 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ============================================
-// IMPORTANT: Static files serving - FIXED
-// ============================================
+// ============================================================
+// CRITICAL: Static file serving for uploads
+// ============================================================
 const uploadsPath = path.join(__dirname, "../uploads");
-console.log(`Serving static files from: ${uploadsPath}`);
+console.log(`📁 Serving static files from: ${uploadsPath}`);
 
-// Serve static files from uploads directory
+// Serve everything under /uploads
 app.use("/uploads", express.static(uploadsPath));
 
-// Also serve from root for compatibility
-app.use(express.static(uploadsPath));
+// Also serve specific subdirectories for clarity
+app.use("/uploads/images", express.static(path.join(uploadsPath, "images")));
+app.use(
+  "/uploads/circulars",
+  express.static(path.join(uploadsPath, "circulars")),
+);
+app.use(
+  "/uploads/downloads",
+  express.static(path.join(uploadsPath, "downloads")),
+);
 
-// ============================================
-
-// Apply rate limiting to login route specifically
+// Apply rate limiting to login route
 app.use("/api/auth/login", loginLimiter);
 
 // Routes
@@ -267,6 +270,42 @@ app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "API is running" });
 });
 
+// Debug endpoint to check uploaded files
+app.get("/api/debug-files", async (req, res) => {
+  try {
+    const uploadsPath = path.join(__dirname, "../uploads");
+    const files = [];
+
+    const readDirRecursive = async (dir) => {
+      const items = await fs.readdir(dir);
+      for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const stat = await fs.stat(fullPath);
+        if (stat.isDirectory()) {
+          await readDirRecursive(fullPath);
+        } else {
+          const relativePath = path.relative(uploadsPath, fullPath);
+          files.push({
+            name: item,
+            path: `/${relativePath.replace(/\\/g, "/")}`,
+            fullUrl: `/uploads/${relativePath.replace(/\\/g, "/")}`,
+          });
+        }
+      }
+    };
+
+    await readDirRecursive(uploadsPath);
+    res.json({
+      success: true,
+      uploadsPath,
+      fileCount: files.length,
+      files,
+    });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
 // Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -277,11 +316,12 @@ app.use((err, req, res, next) => {
 
 // 404
 app.use((req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.url}`);
   res.status(404).json({ success: false, message: "Route not found" });
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Uploads path: ${uploadsPath}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📁 Uploads directory: ${uploadsPath}`);
 });
