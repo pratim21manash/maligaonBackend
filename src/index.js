@@ -95,7 +95,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files
+// app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// Static files - serve uploads folder
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// Add this for debugging - log when static files are requested
+app.use("/uploads", (req, res, next) => {
+  console.log("Static file requested:", req.url);
+  next();
+});
 
 // Apply rate limiting to login route specifically
 app.use("/api/auth/login", loginLimiter);
